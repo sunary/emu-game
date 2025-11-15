@@ -5,11 +5,10 @@ Lightweight Go game server that exposes HTTP and WebSocket endpoints for joining
 ### Table of Contents
 - [Prerequisites](#prerequisites)
 - [Configuration](#configuration)
+- [Running Locally](#running-locally)
 - [Running the Server](#running-the-server)
 - [Key Endpoints](#key-endpoints)
 - [Testing](#testing)
-- [Running Locally](#running-locally)
-- [Load / Stress Testing](#load--stress-testing)
 - [Documents](#documents)
 - [Acknowledgements](#acknowledgements)
 
@@ -24,6 +23,13 @@ Default settings live in `configs/default.yaml`. Override any value via environm
 
 - `SERVER__ADDR` – HTTP listen address (default `:8080`)
 - `REDIS__ADDR` – Redis address (default `localhost:6379`)
+
+### Running Locally
+1. **Install dependencies**: Go ≥1.25 and Redis (e.g., `brew install redis && redis-server --daemonize yes`).
+2. **Configure (optional)**: Override values via env vars, e.g. `export SERVER__ADDR=":9000"` or `export REDIS__ADDR="localhost:6379"`.
+3. **Start the server**: `go run ./cmd/server`.
+4. **Generate a JWT**: `go run ./cmd/gen-token -curl` (prints a token plus sample curl/websocket commands). Save `TOKEN='<value>'`.
+5. **Exercise endpoints**: Use the provided curl snippets to join/submit or hit `/leaderboard`. Keep the websocket open with `wscat -c ws://localhost:8080/ws`.
 
 ### Running the Server
 
@@ -53,40 +59,39 @@ All `/user/*` routes require a valid `Authorization: Bearer <token>` header cont
 
 ### Testing
 
+#### Unit Tests
+Run the full suite (includes Redis-backed tests via `miniredis`):
 ```bash
 go test ./...
 ```
 
-Unit tests live under `internal/repositories` and cover join/submission/leaderboard behaviors using an in-memory Redis emulator.
-
-### Running Locally
-1. **Install dependencies**: Go ≥1.25 and Redis (e.g., `brew install redis && redis-server --daemonize yes`).
-2. **Configure (optional)**: Override values via env vars, e.g. `export SERVER__ADDR=":9000"` or `export REDIS__ADDR="localhost:6379"`.
-3. **Start the server**: `go run ./cmd/server`.
-4. **Generate a JWT**: `go run ./cmd/gen-token -curl` (prints a token plus sample curl/websocket commands). Save `TOKEN='<value>'`.
-5. **Exercise endpoints**: Use the provided curl snippets to join/submit or hit `/leaderboard`. Keep the websocket open with `wscat -c ws://localhost:8080/ws`.
-
-### Load / Stress Testing
-
-Use the bundled script to simulate up to 1,000 distinct users (defaults can be overridden via env vars such as `TOTAL_REQUESTS`, `CONCURRENCY`, `BASE_SCORE`, etc.). Every iteration generates a fresh random user id (`stress-<hex>`) and quiz id (`quiz-<hex>`), then performs a join and submit with a unique score (`BASE_SCORE + iteration`). Provide a valid JWT via `TOKEN`:
-
+#### Integration & Load (via stress script)
+Use the bundled script to simulate up to 1,000 distinct users (random user IDs, quiz IDs, and scores). Provide a valid JWT via `TOKEN`:
 ```bash
 TOTAL_REQUESTS=1000 CONCURRENCY=100 ./scripts/stress-test.sh
 ```
-
-The script issues `TOTAL_REQUESTS` independent join/submit flows using those randomized identifiers, then reports:
-- Per-request latency samples (CSV in `/tmp/stress_latency.csv`)
-- Websocket event counts (submissions seen on `/ws`)
-- The final leaderboard slice (`LEADERBOARD_FROM`/`LEADERBOARD_LIMIT`)
+The script reports:
+- Latency samples (`/tmp/stress_latency.csv`)
+- Websocket event counts
+- Leaderboard slice size (`LEADERBOARD_FROM`/`LEADERBOARD_LIMIT`)
 - Start/end timestamps and total duration
 
 **Stress script tips**:
 ```bash
-# Ensure redis-cli can connect
-redis-cli -h localhost -p 6379 ping
-
-# Run the load
+redis-cli -h localhost -p 6379 ping      # ensure Redis is reachable
 TOTAL_REQUESTS=1000 CONCURRENCY=150 ./scripts/stress-test.sh
+```
+
+**Scalability scenario** (two API instances with shared Redis):
+```bash
+# Terminal A
+SERVER__ADDR=:8080 REDIS__ADDR=localhost:6379 go run ./cmd/server
+# Terminal B
+SERVER__ADDR=:8081 REDIS__ADDR=localhost:6379 go run ./cmd/server
+
+HOST=http://localhost:8080 TOTAL_REQUESTS=500 ./scripts/stress-test.sh &
+HOST=http://localhost:8081 TOTAL_REQUESTS=500 ./scripts/stress-test.sh &
+wait
 ```
 
 ### Documents

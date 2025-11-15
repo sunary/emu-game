@@ -5,7 +5,8 @@
 3. [Data Flow (Join → Submit → Leaderboard)](#data-flow-join--submit--leaderboard)
 4. [Websocket & Quiz Sequence](#websocket--quiz-sequence)
 5. [Design Trade-offs](#design-trade-offs)
-6. [Integration Notes](#integration-notes)
+6. [Scalability Notes](#scalability-notes)
+7. [Integration Notes](#integration-notes)
 
 ## Architecture Diagram
 ```mermaid
@@ -99,6 +100,12 @@ sequenceDiagram
 |--------|------|------|
 | Redis Pub/Sub *(current)* | Enables multiple server instances to share events with minimal setup, low latency | Messages aren’t durable; consumers must stay connected, and Redis availability becomes a dependency |
 | Dedicated message bus (Kafka/NATS) | Durable, replayable events, strong ordering | More operational overhead, may be overkill for small workloads |
+
+## Scalability Notes
+- **Horizontal scaling**: Multiple API servers can run behind a load balancer (e.g., NGINX, Traefik) so long as they point to the same Redis instance. Redis Pub/Sub ensures websocket events propagate across instances.
+- **Stateless HTTP layer**: Because join/submit state is kept in Redis, new instances can be added/removed without draining state.
+- **Websocket clients**: Each server maintains its own websocket connections and listens to Redis Pub/Sub, so clients can connect to any node and still receive events triggered elsewhere.
+- **Future enhancements**: For higher scale, consider adding sticky sessions (or a websocket-aware proxy) and moving from Redis Pub/Sub to a durable messaging system (Kafka/NATS) if event loss is unacceptable.
 
 ## Integration Notes
 ### Authentication
