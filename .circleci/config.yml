@@ -1,0 +1,28 @@
+version: 2.1
+jobs:
+  build-test:
+    docker:
+      - image: cimg/go:1.25
+    environment:
+      GO111MODULE: "on"
+    steps:
+      - checkout
+      - run:
+          name: Install Redis
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y redis-server
+            sudo service redis-server start
+      - run:
+          name: Verify Go version
+          command: go version
+      - run:
+          name: Download dependencies
+          command: go mod download
+      - run:
+          name: Run tests
+          command: go test ./...
+workflows:
+  build-and-test:
+    jobs:
+      - build-test

@@ -1,0 +1,17 @@
+version: '3.9'
+services:
+  redis:
+    image: redis:7
+    container_name: emu-redis
+    ports:
+      - "6379:6379"
+  server:
+    build: .
+    container_name: emu-server
+    environment:
+      - REDIS__ADDR=redis:6379
+      - SERVER__ADDR=:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis

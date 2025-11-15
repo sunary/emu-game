@@ -1,0 +1,29 @@
+# Go build/cache artifacts
+bin/
+build/
+*.out
+*.test
+coverage.*
+
+# Go module
+vendor/
+
+# IDE/editor
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Redis snapshots/logs
+*.rdb
+*.log
+
+# Env/config
+.env
+.env.local
+
+# Docker
+*.tar
