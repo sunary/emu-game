@@ -1,0 +1,11 @@
+language: go
+go:
+  - "1.25"
+
+services:
+  - redis-server
+
+script:
+  - go version
+  - go mod download
+  - go test ./...
