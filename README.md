@@ -31,10 +31,13 @@ Default settings live in `configs/default.yaml`. Override any value via environm
 go run ./cmd/server
 ```
 
-To generate a JWT (plus ready-to-run curl/websocket commands) use the helper CLI:
+To generate a JWT - `user-id: alice` (plus ready-to-run curl/websocket commands) use the helper CLI:
 
 ```bash
-go run ./cmd/gen-token -sub alice -quiz quiz-42 -score 150
+go run ./cmd/gen-token -sub alice
+
+# for full curl
+go run ./cmd/gen-token -sub alice -quiz quiz-42 -score 150 -curl
 ```
 
 ### Key Endpoints
