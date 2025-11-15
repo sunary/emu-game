@@ -21,16 +21,8 @@ type RedisRepository struct {
 	client *redis.Client
 }
 
-func NewRedisRepository(opts *redis.Options) (*RedisRepository, error) {
-	client := redis.NewClient(opts)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("redis ping failed: %w", err)
-	}
-
-	return &RedisRepository{client: client}, nil
+func NewRedisRepository(redis *redis.Client) (*RedisRepository, error) {
+	return &RedisRepository{client: redis}, nil
 }
 
 func (s *RedisRepository) JoinQuiz(ctx context.Context, userID, quizID string) error {
@@ -108,11 +100,4 @@ func (s *RedisRepository) ListUserScores(ctx context.Context, from, limit int64)
 
 func userQuizKey(userID string) string {
 	return fmt.Sprintf("%s:%s", userQuizKeyNS, userID)
-}
-
-func (s *RedisRepository) Close() error {
-	if s == nil || s.client == nil {
-		return nil
-	}
-	return s.client.Close()
 }

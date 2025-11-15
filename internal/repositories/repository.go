@@ -11,5 +11,4 @@ type Repository interface {
 	GetQuizByUserID(ctx context.Context, userID string) (string, error)
 	SubmitQuiz(ctx context.Context, userQuiz models.UserQuiz) error
 	ListUserScores(ctx context.Context, from, limit int64) ([]models.UserQuiz, error)
-	Close() error
 }

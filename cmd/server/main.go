@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os/signal"
@@ -17,18 +18,23 @@ import (
 func main() {
 	// Note: SIGKILL cannot be intercepted by userland programs, but we include it for completeness—
 	// the runtime simply never delivers it.
-	_, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	defer stop()
 
 	cfg := configs.Load()
 
-	repo, err := initScoreRepository(cfg.Redis)
+	redis, err := initRedis(cfg.Redis)
 	if err != nil {
 		log.Fatalf("failed to initialize score repository: %v", err)
 	}
-	defer repo.Close()
+	defer redis.Close()
 
-	srv := server.New(cfg.Server.Addr, repo)
+	repo, err := repositories.NewRedisRepository(redis)
+	if err != nil {
+		log.Fatalf("failed to initialize score repository: %v", err)
+	}
+
+	srv := server.New(ctx, cfg.Server.Addr, repo, redis)
 
 	log.Printf("game server listening on %s", cfg.Server.Addr)
 
@@ -37,10 +43,14 @@ func main() {
 	}
 }
 
-func initScoreRepository(cfg configs.RedisConfig) (repositories.Repository, error) {
-	return repositories.NewRedisRepository(&redis.Options{
+func initRedis(cfg configs.RedisConfig) (*redis.Client, error) {
+	client := redis.NewClient(&redis.Options{
 		Addr:     cfg.Addr,
 		Password: cfg.Password,
 		DB:       cfg.DB,
 	})
+	if err := client.Ping(context.Background()).Err(); err != nil {
+		return nil, fmt.Errorf("redis ping failed: %w", err)
+	}
+	return client, nil
 }

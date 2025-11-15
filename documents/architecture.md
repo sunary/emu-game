@@ -94,6 +94,12 @@ sequenceDiagram
 | Single active quiz *(current)* | Simplifies validation/state, avoids conflicting submits | Users can’t play multiple quizzes concurrently |
 | Multi-quiz support | Flexible for power users | Requires per-quiz session tracking, more complex validation |
 
+### 4. WebSocket fan-out via Redis Pub/Sub
+| Option | Pros | Cons |
+|--------|------|------|
+| Redis Pub/Sub *(current)* | Enables multiple server instances to share events with minimal setup, low latency | Messages aren’t durable; consumers must stay connected, and Redis availability becomes a dependency |
+| Dedicated message bus (Kafka/NATS) | Durable, replayable events, strong ordering | More operational overhead, may be overkill for small workloads |
+
 ## Integration Notes
 ### Authentication
 All `/user/quiz/...` endpoints expect `Authorization: Bearer <jwt>` where the `sub` claim represents the user. Middleware injects the subject into the request context for downstream handlers.

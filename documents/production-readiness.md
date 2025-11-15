@@ -36,8 +36,7 @@
 - Optional: `golangci-lint run`, `gosec ./...` for static analysis.
 - Stress test before prod cutover:
   ```bash
-  TOKEN=$(go run ./cmd/gen-token | awk -F"'" 'NR==2 {print $2}')
-  TOTAL_REQUESTS=1000 CONCURRENCY=150 TOKEN="$TOKEN" ./scripts/stress-test.sh
+  TOTAL_REQUESTS=1000 CONCURRENCY=100 ./scripts/stress-test.sh
   ```
 
 ## 5. Rollback Strategy

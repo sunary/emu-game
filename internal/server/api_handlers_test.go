@@ -8,7 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	miniredis "github.com/alicebob/miniredis/v2"
 	"github.com/gorilla/mux"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
 	"github.com/sunary/emu-game/internal/models"
@@ -67,10 +69,14 @@ func (m *mockRepository) ListUserScores(ctx context.Context, from, limit int64) 
 
 func (m *mockRepository) Close() error { return nil }
 
-func newAPIHandlers(repo repositories.Repository) *apiHandlers {
+func newAPIHandlers(t *testing.T, repo repositories.Repository) *apiHandlers {
+	mr := miniredis.RunT(t)
+	redisClient := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	defer mr.Close()
 	return &apiHandlers{
-		repo: repo,
-		hub:  newHub(),
+		repo:  repo,
+		hub:   newHub(redisClient),
+		redis: redisClient,
 	}
 }
 
@@ -81,7 +87,7 @@ func withUserContext(req *http.Request, userID string) *http.Request {
 
 func TestJoinQuiz_Success(t *testing.T) {
 	repo := &mockRepository{}
-	api := newAPIHandlers(repo)
+	api := newAPIHandlers(t, repo)
 
 	body, _ := json.Marshal(map[string]string{"quiz_id": "quiz-42"})
 	req := httptest.NewRequest(http.MethodPost, "/user/quiz-42/join", bytes.NewReader(body))
@@ -98,7 +104,7 @@ func TestJoinQuiz_Success(t *testing.T) {
 
 func TestJoinQuiz_AlreadyJoined(t *testing.T) {
 	repo := &mockRepository{getQuizResult: "quiz-42"}
-	api := newAPIHandlers(repo)
+	api := newAPIHandlers(t, repo)
 
 	req := httptest.NewRequest(http.MethodPost, "/user/quiz-42/join", bytes.NewBufferString(`{}`))
 	req = mux.SetURLVars(req, map[string]string{"id": "quiz-42"})
@@ -115,7 +121,7 @@ func TestSubmitQuiz_Success(t *testing.T) {
 	repo := &mockRepository{
 		getQuizResult: "quiz-99",
 	}
-	api := newAPIHandlers(repo)
+	api := newAPIHandlers(t, repo)
 
 	req := httptest.NewRequest(http.MethodPost, "/user/quiz-99/submit", bytes.NewBufferString(`{"score":75}`))
 	req = mux.SetURLVars(req, map[string]string{"id": "quiz-99"})
@@ -135,7 +141,7 @@ func TestLeaderboard_ReturnsScores(t *testing.T) {
 			{UserID: "u1", QuizID: "q1", Score: 100},
 		},
 	}
-	api := newAPIHandlers(repo)
+	api := newAPIHandlers(t, repo)
 
 	req := httptest.NewRequest(http.MethodGet, "/leaderboard", bytes.NewBufferString(`{"from":0,"limit":5}`))
 	rec := httptest.NewRecorder()

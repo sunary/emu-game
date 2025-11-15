@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/sunary/emu-game/internal/external"
 	"github.com/sunary/emu-game/internal/repositories"
@@ -35,13 +37,18 @@ type healthResponse struct {
 }
 
 type apiHandlers struct {
-	repo repositories.Repository
-	hub  *wsHub
+	repo  repositories.Repository
+	redis *redis.Client
+	hub   *wsHub
 }
 
-func New(addr string, repo repositories.Repository) *http.Server {
+func New(ctx context.Context, addr string, repo repositories.Repository, redis *redis.Client) *http.Server {
 	router := mux.NewRouter()
-	api := &apiHandlers{repo: repo, hub: newHub()}
+	hub := newHub(redis)
+
+	go hub.subscribe(ctx)
+
+	api := &apiHandlers{repo: repo, redis: redis, hub: hub}
 
 	router.Use(userAuthMiddleware())
 	router.HandleFunc("/health", healthHandler).Methods(http.MethodGet)

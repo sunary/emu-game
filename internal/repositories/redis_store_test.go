@@ -17,9 +17,9 @@ func newTestRepo(t *testing.T) (*RedisRepository, *miniredis.Miniredis) {
 
 	mr := miniredis.RunT(t)
 
-	repo, err := NewRedisRepository(&redis.Options{
+	repo, err := NewRedisRepository(redis.NewClient(&redis.Options{
 		Addr: mr.Addr(),
-	})
+	}))
 	require.NoError(t, err)
 
 	return repo, mr
@@ -28,7 +28,6 @@ func newTestRepo(t *testing.T) (*RedisRepository, *miniredis.Miniredis) {
 func TestRedisRepositoryJoinAndGetQuiz(t *testing.T) {
 	repo, mr := newTestRepo(t)
 	defer func() {
-		repo.Close()
 		mr.Close()
 	}()
 
@@ -49,7 +48,6 @@ func TestRedisRepositoryJoinAndGetQuiz(t *testing.T) {
 func TestRedisRepositorySubmitAndListScores(t *testing.T) {
 	repo, mr := newTestRepo(t)
 	defer func() {
-		repo.Close()
 		mr.Close()
 	}()
 
@@ -80,7 +78,6 @@ func TestRedisRepositorySubmitAndListScores(t *testing.T) {
 func TestRedisRepositoryLeaderboardPagination(t *testing.T) {
 	repo, mr := newTestRepo(t)
 	defer func() {
-		repo.Close()
 		mr.Close()
 	}()
 

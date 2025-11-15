@@ -90,7 +90,15 @@ func (a *apiHandlers) submitQuiz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.hub.broadcast([]byte(fmt.Sprintf("{\"event\":\"submit_quiz\",\"user_id\":\"%s\",\"quiz_id\":\"%s\",\"score\":%f}", userID, reqQuizID, req.Score)))
+	data, _ := json.Marshal(models.UserQuiz{UserID: userID, QuizID: reqQuizID, Score: req.Score})
+	event := eventMessage{
+		Event: submitQuizEvent,
+		Data:  data,
+	}
+	// Publish the event to the Redis channel so that the websocket hub can broadcast it to all connected clients.
+	if err := a.redis.Publish(r.Context(), eventsChannel, event).Err(); err != nil {
+		log.Printf("failed to publish event: %v", err)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{"message": fmt.Sprintf("submitted quiz %s", reqQuizID)}); err != nil {
