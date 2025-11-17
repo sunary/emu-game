@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 
@@ -16,11 +16,8 @@ import (
 )
 
 func main() {
-	// Note: SIGKILL cannot be intercepted by userland programs, but we include it for completeness—
-	// the runtime simply never delivers it.
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-	defer stop()
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	cfg := configs.Load()
 
 	redis, err := initRedis(cfg.Redis)
@@ -38,8 +35,36 @@ func main() {
 
 	log.Printf("game server listening on %s", cfg.Server.Addr)
 
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("server error: %v", err)
+	stop := make(chan os.Signal, 1)
+	errCh := make(chan error)
+	signal.Notify(stop, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			log.Printf("server error: %v", err)
+			errCh <- err
+		}
+	}()
+
+	shutdownFn := func() {
+		srv.Shutdown(ctx)
+		os.Exit(0)
+	}
+
+	for {
+		select {
+		case <-stop:
+			shutdownFn()
+			return
+
+		case <-ctx.Done():
+			shutdownFn()
+			return
+
+		case <-errCh:
+			shutdownFn()
+			return
+		}
 	}
 }
 
